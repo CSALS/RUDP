@@ -176,10 +176,11 @@ class Rudp():
                 f.close()
                 continue
                 
-            if self.checksum(data,1) != "1111111111111111" : # corrupted packet received relay previous acknowledgement
+            if self.checksum(data,1) != "1111111111111111": # corrupted packet received relay previous acknowledgement
                 if last == 1:
                     last = 0
                 #final=str(not expected_seq_num)+ "|ACK"
+                print("\t\treceived corrupt packet")
                 print("checksum " + str(self.checksum(data,1)))
                 return_msg=str(int(not expected_seq_num))+"|ACK"
                 retpkt=packet(return_msg)
