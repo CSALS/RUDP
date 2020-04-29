@@ -57,25 +57,25 @@ class Rudp():
     # Receive Acknowledgment   
                   
     def ack_gen(self,sock):
-        # sock.setblocking(0)
-        # while self.acknowledgment == None and self.isAckRcv == False and self.isTimeOut == False:
-        try:
-            self.acknowledgment,self.toaddress = sock.recvfrom(MAX_SIZE_BYTES)
-            self.acknowledgment = self.acknowledgment.decode('ascii')
-            # Gives the number of Acknowledgment packet
-            self.acknowledgment=self.acknowledgment.split("|")[2]      
-            print("ACK received == "+self.acknowledgment)
-            # sock.setblocking(1)
-        except:
-            print("error ack gen")
-            f = open('ack_gen.log',"w+")
-            f.write("Error: Line 60 Socket Receive No Data\n")
-            # continue
+        sock.setblocking(0)
+        print(f"\n\t{self.acknowledgment} {self.isAckRcv} {self.isTimeOut}")
+        while self.acknowledgment == None and self.isAckRcv == False and self.isTimeOut == False:
+            try:
+                self.acknowledgment,self.toaddress = sock.recvfrom(MAX_SIZE_BYTES)
+                self.acknowledgment = self.acknowledgment.decode('ascii')
+                # Gives the number of Acknowledgment packet
+                self.acknowledgment=self.acknowledgment.split("|")[2]      
+                print("ACK received == "+self.acknowledgment)
+                # sock.setblocking(1)
+            except:
+                print("error ack gen")
+
+        print("\n\tloop is breaking\n")
 
     # Sender Function           
     def write(self,data):
         gseqNo=0
-        time_limit=4   
+        time_limit=10000
         sock = self.ourSocket
         # Fragment and send file in chunks of 3 byte 
         generator = chunkstring(data,3)
@@ -115,12 +115,13 @@ class Rudp():
                 start_time= time.time()
                 sock.sendto(encodedPacket , (self.toip,self.toport))
 
-                #Creating a thread to calculate acknowledgement 
-                ackthread = threading.Thread(target = self.ack_gen, args = (sock,))
-                ackthread.start()
                 self.isAckRcv=False
                 self.isTimeOut=False
                 self.acknowledgement=None
+                #Creating a thread to calculate acknowledgement 
+                ackthread = threading.Thread(target = self.ack_gen, args = (sock,))
+                ackthread.start()
+                
                 # if isLast==True:
                 print(f"These are params{self.acknowledgment} {self.isAckRcv} {self.isTimeOut}")
                 while(not TIMED_OUT):
@@ -153,6 +154,8 @@ class Rudp():
                         print("Ack != Seq")
                         continue
 
+                # Need to kill the thread if the pkt sent by sender is lost. Since recvfrom is non-blocking it will wait till it gets data
+                # and join just waits for it to complete.
                 if kill_ack_thread == True:
                     print("KILL ACK THREAD?")
                     self.isTimeOut = True
