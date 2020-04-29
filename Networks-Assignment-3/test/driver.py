@@ -10,13 +10,12 @@ MY_IP = '127.0.0.1' # Default IP To Receive Message
 def server(s):
     i=0
     try:
-        while i<2:#receive 2 msgs
+        while True:
             data, client_addr = s.read() ######CRITICAL######### need to invoke rudp recv method here
             #print("inserver")
             #print(data)
             #message = data.decode('ascii')#Unnecessary decode
             print(f"\nFrom client {client_addr} : {data}\nSend:", end=" ")
-            i+=1
     except (KeyboardInterrupt, SystemExit):
         os._exit(0)
 
@@ -25,13 +24,12 @@ def client():
     s = Rudp()
     i=0
     try:
-        while i<2:#send 2 msgs
+        while True:
             dest_ip, dest_port, message = input("Send: ").split(',', 3)
             dest_port = int(dest_port)
             s.connect(dest_ip, dest_port)
             data = message.encode('ascii')#Unnecessary encode
             s.write(data) #####CRITICAL######## need to invoke our rudp send method
-            i+=1
     except (KeyboardInterrupt, SystemExit, EOFError, ValueError):
         os._exit(0)
         

@@ -9,13 +9,13 @@ MAX_SIZE_BYTES = 65535 # Mazimum size of a UDP datagram
 # Delimiter
 delimiter = "|"
 
+import logging
 
 #TODO check if ack is corrupted sender
 #TODO DONE data send in receive (buffer)
 #TODO checksum
 #TODO dynamic timeout
 #TODO Can our code handle multiple clients and mult servers(self.acknowledgment)?
-
 
 '''
 Application Layer Protocol which adds reliability function for UDP in socket class python.
@@ -36,10 +36,11 @@ def chunkstring(string, length):
 
 class Rudp():
     acknowledgment=None#CLASS VARIABLE WORKS ONLY IF SINGLE CLIENT SERVER
-    
+    isAckRcv=False
+    isTimeOut=False
     # Socket Creation and Initialisation
 
-    def __init__(self,sock=None): 
+    def __init__(self,sock=None):
         if sock is None:
             self.ourSocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         else:
@@ -56,15 +57,18 @@ class Rudp():
     # Receive Acknowledgment   
                   
     def ack_gen(self,sock):
-        try:
-            self.acknowledgment,self.toaddress = sock.recvfrom(MAX_SIZE_BYTES)
-            self.acknowledgment = self.acknowledgment.decode('ascii')
-            # Gives the number of Acknowledgment packet
-            self.acknowledgment=self.acknowledgment.split("|")[2]      
-            print("ACK received == "+self.acknowledgment)
-
-        except:
-            self.acknowledgment=None
+        while self.acknowledgment == None and self.isAckRcv == False and self.isTimeOut == False:
+            try:
+                self.acknowledgment,self.toaddress = sock.recvfrom(MAX_SIZE_BYTES)
+                self.acknowledgment = self.acknowledgment.decode('ascii')
+                # Gives the number of Acknowledgment packet
+                self.acknowledgment=self.acknowledgment.split("|")[2]      
+                print("ACK received == "+self.acknowledgment)
+            except:
+                f = open('ack_gen.log',"w+")
+                f.write("Error: Line 60 Socket Receive No Data\n")
+                f.close()
+                continue
 
     # Sender Function           
     def write(self,data):
@@ -95,11 +99,13 @@ class Rudp():
             finalPacket = str(pkt.checksum) + delimiter + str(pkt.seqNo) + delimiter + str(pkt.length) +delimiter+str(pkt.last)+ delimiter + (pkt.msg) # Will be put in payload
             encodedPacket =finalPacket.encode('ascii')
 
-            first_iter=True # If first iteration of the message
+            first_iter=True # If first iteration of the message (just for not to TIMEOUT in the first iteration itself)
             TIMED_OUT=False
-            while TIMED_OUT or first_iter :
+            # This loop should keep executing until the 'encodedPacket' is sent successfully (which means we received correct ACK pkt)
+            while TIMED_OUT or first_iter:
                 TIMED_OUT=False
                 first_iter=False
+                kill_ack_thread=True
                 start_time= time.time()
                 sock.sendto(encodedPacket , (self.toip,self.toport))
 
@@ -107,8 +113,7 @@ class Rudp():
                 ackthread = threading.Thread(target = self.ack_gen, args = (sock,))
                 ackthread.start()
                 
-                while(not TIMED_OUT): 
-
+                while(not TIMED_OUT):
                     TIMED_OUT= not ( abs(time.time() - start_time) < time_limit)
 
                     #TODO CHECK CHECKSUM FOR ACK
@@ -117,30 +122,35 @@ class Rudp():
                     if(self.acknowledgment == None):
                         continue
                     
-                    # Ack received
-                    if(self.acknowledgment== str(pkt.seqNo)):
+                    # Correct Ack received
+                    elif(self.acknowledgment == str(pkt.seqNo)):
+                        kill_ack_thread=False
+                        TIMED_OUT = False
                         #toggling the sequence number if the packet has reached properly
                         gseqNo = int(not (pkt.seqNo))
-
                         print("gseqNo:"+str(gseqNo))
                         self.acknowledgment=None
+                        self.isAckRcv=True
                         break
                     
-                    if( self.acknowledgment != str(pkt.seqNo)):
+                    # Wrong Ack received = We just wait for timeout and then transmit
+                    elif(self.acknowledgment != str(pkt.seqNo)):
+                        kill_ack_thread=False
+                        self.acknowledgment=None
+                        self.isAckRcv=True
                         print("Ack != Seq")
-                        break
-                                    
-                #print("sender: before main and ack join")
+                        continue
+
+                if kill_ack_thread == True:
+                    self.isTimeOut = True
                 ackthread.join()
-                #print("sender:main and ack Threads joined")
    
     #receiver
     def read(self):
         retmsg=""
         expected_seq_num = 0
-        last =0
+        last = 0
         while last==0:
-            
             try:
                 data, self.clientAddress = self.ourSocket.recvfrom(MAX_SIZE_BYTES)#UDP recvfrom #######PAUSE HERE
                 data = data.decode('ascii')
@@ -148,10 +158,15 @@ class Rudp():
                 
                 print("receiver: msg received "+data+str(self.clientAddress))
             except:
+                f.open('read.log',"w+")
+                f.write("Error: Line 143 Socket Receive No Data\n")
+                f.close()
                 continue
                 
             
             if  self.checksum(data,1) != "1111111111111111" : # corrupted packet received relay previous acknowledgement
+                if last == 1:
+                    last = 0
                 #final=str(not expected_seq_num)+ "|ACK"
                 print("checksum " + str(self.checksum(data,1)))
                 return_msg=str(int(not expected_seq_num))+"|ACK"
@@ -159,9 +174,12 @@ class Rudp():
                 finalPacket = str(retpkt.checksum) + delimiter + str(retpkt.length)+delimiter+ retpkt.msg #pkt.msg is "0|ACK" or "1|ACK"       
                 finalPacket=finalPacket.encode('ascii')
                 print("receiver:bp1")
-                self.ourSocket.sendto(finalPacket, self.clientAddress )                   
+                self.ourSocket.sendto(finalPacket, self.clientAddress)
+                             
         
             elif expected_seq_num != int(data.split("|")[1]):
+                if last == 1:
+                    last = 0
                 return_msg=str(int(not expected_seq_num))+"|ACK"
                 retpkt=packet(return_msg)
                 finalPacket = str(retpkt.checksum) + delimiter + str(retpkt.length)+delimiter+ retpkt.msg #pkt.msg is "0|ACK" or "1|ACK"       
