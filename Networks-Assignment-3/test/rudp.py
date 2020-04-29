@@ -58,7 +58,7 @@ class Rudp():
                   
     def ack_gen(self,sock):
         sock.setblocking(0)
-        print(f"\n\t{self.acknowledgment} {self.isAckRcv} {self.isTimeOut}")
+        # print(f"\n\t{self.acknowledgment} {self.isAckRcv} {self.isTimeOut}")
         while self.acknowledgment == None and self.isAckRcv == False and self.isTimeOut == False:
             try:
                 self.acknowledgment,self.toaddress = sock.recvfrom(MAX_SIZE_BYTES)
@@ -68,9 +68,10 @@ class Rudp():
                 print("ACK received == "+self.acknowledgment)
                 # sock.setblocking(1)
             except:
-                print("error ack gen")
+                continue
+                # print("error ack gen")
 
-        print("\n\tloop is breaking\n")
+        # print("\n\tloop is breaking\n")
 
     # Sender Function           
     def write(self,data):
@@ -94,13 +95,11 @@ class Rudp():
             print("pkt Seq: " + str(pkt.seqNo))
             isLast=False
             if(i==len(list_of_packet_strings)-1 ):
-                print("this is the last packet")
+                # print("this is the last packet")
                 isLast=True
                 pkt.last=1
 
             finalPacket = str(pkt.seqNo) + delimiter + str(pkt.length) +delimiter+str(pkt.last)+ delimiter + (pkt.msg) # Will be put in payload
-            if isLast==True:
-                print(finalPacket)
             pkt.checksum=self.checksum(finalPacket,0)
             finalPacket = str(pkt.checksum) + delimiter + str(pkt.seqNo) + delimiter + str(pkt.length) +delimiter+str(pkt.last)+ delimiter + (pkt.msg) # Will be put in payload
             encodedPacket =finalPacket.encode('ascii')
@@ -123,10 +122,7 @@ class Rudp():
                 ackthread.start()
                 
                 # if isLast==True:
-                print(f"These are params{self.acknowledgment} {self.isAckRcv} {self.isTimeOut}")
                 while(not TIMED_OUT):
-                    # if isLast==True:
-                    #     print(f"\t\t\t\t\tParams {self.acknowledgment} {self.isAckRcv} {self.isTimeOut}")
                     TIMED_OUT= not ( abs(time.time() - start_time) < time_limit)
 
                     #TODO CHECK CHECKSUM FOR ACK
@@ -214,9 +210,8 @@ class Rudp():
                 print("receiver:bp3")
                 #DOUBT: what if this ack is lost? we are exiting from the loop right?
                 if last==1:
-                    print("sending last pkt")
-                self.ourSocket.sendto(finalPacket, self.clientAddress)              
-                print("sent last pkt")
+                    print("sending last ack")
+                self.ourSocket.sendto(finalPacket, self.clientAddress)
                 expected_seq_num = int(not expected_seq_num) #Toggle expected sequence numbers
            
         
