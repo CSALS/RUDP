@@ -57,25 +57,26 @@ class Rudp():
     # Receive Acknowledgment   
                   
     def ack_gen(self,sock):
-        while self.acknowledgment == None and self.isAckRcv == False and self.isTimeOut == False:
-            try:
-                self.acknowledgment,self.toaddress = sock.recvfrom(MAX_SIZE_BYTES)
-                self.acknowledgment = self.acknowledgment.decode('ascii')
-                # Gives the number of Acknowledgment packet
-                self.acknowledgment=self.acknowledgment.split("|")[2]      
-                print("ACK received == "+self.acknowledgment)
-            except:
-                f = open('ack_gen.log',"w+")
-                f.write("Error: Line 60 Socket Receive No Data\n")
-                f.close()
-                continue
+        # sock.setblocking(0)
+        # while self.acknowledgment == None and self.isAckRcv == False and self.isTimeOut == False:
+        try:
+            self.acknowledgment,self.toaddress = sock.recvfrom(MAX_SIZE_BYTES)
+            self.acknowledgment = self.acknowledgment.decode('ascii')
+            # Gives the number of Acknowledgment packet
+            self.acknowledgment=self.acknowledgment.split("|")[2]      
+            print("ACK received == "+self.acknowledgment)
+            # sock.setblocking(1)
+        except:
+            print("error ack gen")
+            f = open('ack_gen.log',"w+")
+            f.write("Error: Line 60 Socket Receive No Data\n")
+            # continue
 
     # Sender Function           
     def write(self,data):
         gseqNo=0
-        time_limit=2     
+        time_limit=4   
         sock = self.ourSocket
-        
         # Fragment and send file in chunks of 3 byte 
         generator = chunkstring(data,3)
         list_of_packet_strings=list(generator)
@@ -91,10 +92,15 @@ class Rudp():
             pkt.seqNo=gseqNo
           
             print("pkt Seq: " + str(pkt.seqNo))
-            if(i==len(list_of_packet_strings)-1 ):     
+            isLast=False
+            if(i==len(list_of_packet_strings)-1 ):
+                print("this is the last packet")
+                isLast=True
                 pkt.last=1
 
             finalPacket = str(pkt.seqNo) + delimiter + str(pkt.length) +delimiter+str(pkt.last)+ delimiter + (pkt.msg) # Will be put in payload
+            if isLast==True:
+                print(finalPacket)
             pkt.checksum=self.checksum(finalPacket,0)
             finalPacket = str(pkt.checksum) + delimiter + str(pkt.seqNo) + delimiter + str(pkt.length) +delimiter+str(pkt.last)+ delimiter + (pkt.msg) # Will be put in payload
             encodedPacket =finalPacket.encode('ascii')
@@ -112,8 +118,14 @@ class Rudp():
                 #Creating a thread to calculate acknowledgement 
                 ackthread = threading.Thread(target = self.ack_gen, args = (sock,))
                 ackthread.start()
-                
+                self.isAckRcv=False
+                self.isTimeOut=False
+                self.acknowledgement=None
+                # if isLast==True:
+                print(f"These are params{self.acknowledgment} {self.isAckRcv} {self.isTimeOut}")
                 while(not TIMED_OUT):
+                    # if isLast==True:
+                    #     print(f"\t\t\t\t\tParams {self.acknowledgment} {self.isAckRcv} {self.isTimeOut}")
                     TIMED_OUT= not ( abs(time.time() - start_time) < time_limit)
 
                     #TODO CHECK CHECKSUM FOR ACK
@@ -142,6 +154,7 @@ class Rudp():
                         continue
 
                 if kill_ack_thread == True:
+                    print("KILL ACK THREAD?")
                     self.isTimeOut = True
                 ackthread.join()
    
@@ -158,6 +171,7 @@ class Rudp():
                 
                 print("receiver: msg received "+data+str(self.clientAddress))
             except:
+                print("error 163")
                 f.open('read.log',"w+")
                 f.write("Error: Line 143 Socket Receive No Data\n")
                 f.close()
@@ -195,7 +209,11 @@ class Rudp():
                 finalPacket=finalPacket.encode('ascii')
                 print("ExceptedSeqnum :" + str(expected_seq_num)+"Seq number:" + str(int(data.split("|")[1])))
                 print("receiver:bp3")
-                self.ourSocket.sendto(finalPacket, self.clientAddress)                   
+                #DOUBT: what if this ack is lost? we are exiting from the loop right?
+                if last==1:
+                    print("sending last pkt")
+                self.ourSocket.sendto(finalPacket, self.clientAddress)              
+                print("sent last pkt")
                 expected_seq_num = int(not expected_seq_num) #Toggle expected sequence numbers
            
         

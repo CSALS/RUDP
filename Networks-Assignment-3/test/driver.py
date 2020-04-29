@@ -15,7 +15,7 @@ def server(s):
             #print("inserver")
             #print(data)
             #message = data.decode('ascii')#Unnecessary decode
-            print(f"\nFrom client {client_addr} : {data}\nSend:", end=" ")
+            print(f"\nFrom client {client_addr} : {data}\nSend: ",end="")
     except (KeyboardInterrupt, SystemExit):
         os._exit(0)
 
@@ -25,7 +25,8 @@ def client():
     i=0
     try:
         while True:
-            dest_ip, dest_port, message = input("Send: ").split(',', 3)
+            dest_ip = MY_IP
+            dest_port, message = input("Send: ").split(',', 2)
             dest_port = int(dest_port)
             s.connect(dest_ip, dest_port)
             data = message.encode('ascii')#Unnecessary encode
