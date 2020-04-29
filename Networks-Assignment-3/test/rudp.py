@@ -163,8 +163,7 @@ class Rudp():
                 f.close()
                 continue
                 
-            
-            if  self.checksum(data,1) != "1111111111111111" : # corrupted packet received relay previous acknowledgement
+            if self.checksum(data,1) != "1111111111111111" : # corrupted packet received relay previous acknowledgement
                 if last == 1:
                     last = 0
                 #final=str(not expected_seq_num)+ "|ACK"
@@ -186,7 +185,7 @@ class Rudp():
                 finalPacket=finalPacket.encode('ascii')
                 print("ExceptedSeqnum :" + str(expected_seq_num)+"Seq number:" + str(int(data.split("|")[1])))
                 print("receiver:bp2")
-                self.ourSocket.sendto(finalPacket, self.clientAddress )                   
+                self.ourSocket.sendto(finalPacket, self.clientAddress)                   
 
             elif expected_seq_num == int(data.split("|")[1]):
                 retmsg+=data.split("|")[4]
