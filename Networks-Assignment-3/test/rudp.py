@@ -75,7 +75,7 @@ class Rudp():
     # Sender Function           
     def write(self,data):
         gseqNo=0
-        time_limit=10000
+        time_limit=2
         sock = self.ourSocket
         # Fragment and send file in chunks of 3 byte 
         generator = chunkstring(data,3)
