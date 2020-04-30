@@ -172,10 +172,7 @@ class Rudp():
                 
                 print("receiver: msg received "+data+str(self.clientAddress))
             except:
-                print("error 163")
-                f.open('read.log',"w+")
-                f.write("Error: Line 143 Socket Receive No Data\n")
-                f.close()
+                print("error 169")
                 continue
                 
             if self.checksum(data,1) != "1111111111111111": # corrupted packet received relay previous acknowledgement
@@ -214,10 +211,12 @@ class Rudp():
                 #DOUBT: what if this ack is lost? we are exiting from the loop right?
                 if last==1:
                     print("sending last ack")
+                    iters=10
+                    while iters > 0:
+                        self.ourSocket.sendto(finalPacket, self.clientAddress)
+                        iters = iters-1
+                else:
                     self.ourSocket.sendto(finalPacket, self.clientAddress)
-                    self.ourSocket.sendto(finalPacket, self.clientAddress)
-
-                self.ourSocket.sendto(finalPacket, self.clientAddress)
                 expected_seq_num = int(not expected_seq_num) #Toggle expected sequence numbers
            
 
