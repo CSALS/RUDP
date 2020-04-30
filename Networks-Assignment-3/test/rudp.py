@@ -80,7 +80,8 @@ class Rudp():
         # Fragment and send file in chunks of 3 byte 
         generator = chunkstring(data,3)
         list_of_packet_strings=list(generator)
-                
+        isSocketError = False
+        start_total_time = time.time()
         for i in range(0,len(list_of_packet_strings)):
             ''' If we are sending last packet there are 2 cases =
                 1. Rec didn't rcv the last packet. So we need to re-trasnmit in this case.
@@ -114,7 +115,12 @@ class Rudp():
                 first_iter=False
                 kill_ack_thread=True
                 start_time= time.time()
-                sock.sendto(encodedPacket , (self.toip,self.toport))
+                try:
+                    sock.sendto(encodedPacket , (self.toip,self.toport))
+                except:
+                    isSocketError=True
+                    print("Socket Sending Error.Maybe the socket was closed")
+                    break
 
                 self.isAckRcv=False
                 self.isTimeOut=False
@@ -157,6 +163,15 @@ class Rudp():
                     print("KILL ACK THREAD?")
                     self.isTimeOut = True
                 ackthread.join()
+
+            if isSocketError==True:
+                break
+
+        end_total_time = time.time()
+        total_bytes = len(data)
+        f= open("data/data.txt","w+")
+        f.write(f"Bytes = {total_bytes}, Total Time = {end_total_time-start_total_time}")
+        f.close()
    
     #receiver
     def read(self):
@@ -215,7 +230,7 @@ class Rudp():
                         self.ourSocket.sendto(finalPacket, self.clientAddress)
                         iters = iters-1
                         time.sleep(0.1)
-                    time.sleep(2)
+                    # time.sleep(2)
                 else:
                     self.ourSocket.sendto(finalPacket, self.clientAddress)
                 expected_seq_num = int(not expected_seq_num) #Toggle expected sequence numbers
