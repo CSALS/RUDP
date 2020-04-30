@@ -82,7 +82,11 @@ class Rudp():
         generator = chunkstring(data,3)
         list_of_packet_strings=list(generator)
                 
-        for i in range(0,len(list_of_packet_strings)):           
+        for i in range(0,len(list_of_packet_strings)):
+            ''' If we are sending last packet there are 2 cases =
+                1. Rec didn't rcv the last packet. So we need to re-trasnmit in this case.
+                2. Rec rcv the last packet but the ack sent by the rcv is lost. But rec doesn't know if the last ack is lost.
+            '''   
             
             # Each msg is a bstring i.e b'hello' or b'there'
             msg=list_of_packet_strings[i]       
@@ -93,7 +97,6 @@ class Rudp():
             pkt.seqNo=gseqNo
           
             print("pkt Seq: " + str(pkt.seqNo))
-            isLast=False
             if(i==len(list_of_packet_strings)-1 ):
                 # print("this is the last packet")
                 isLast=True
@@ -121,7 +124,6 @@ class Rudp():
                 ackthread = threading.Thread(target = self.ack_gen, args = (sock,))
                 ackthread.start()
                 
-                # if isLast==True:
                 while(not TIMED_OUT):
                     TIMED_OUT= not ( abs(time.time() - start_time) < time_limit)
 
@@ -211,10 +213,13 @@ class Rudp():
                 #DOUBT: what if this ack is lost? we are exiting from the loop right?
                 if last==1:
                     print("sending last ack")
+                    self.ourSocket.sendto(finalPacket, self.clientAddress)
+                    self.ourSocket.sendto(finalPacket, self.clientAddress)
+
                 self.ourSocket.sendto(finalPacket, self.clientAddress)
                 expected_seq_num = int(not expected_seq_num) #Toggle expected sequence numbers
            
-        
+
         return retmsg , self.clientAddress
                       
         
