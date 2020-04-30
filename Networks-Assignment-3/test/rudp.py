@@ -77,8 +77,8 @@ class Rudp():
         gseqNo=0
         time_limit=2
         sock = self.ourSocket
-        # Fragment and send file in chunks of 3 byte 
-        generator = chunkstring(data,3)
+        # Fragment and send file in chunks of 10 byte 
+        generator = chunkstring(data,25)
         list_of_packet_strings=list(generator)
         isSocketError = False
         start_total_time = time.time()
@@ -169,8 +169,9 @@ class Rudp():
 
         end_total_time = time.time()
         total_bytes = len(data)
-        f= open("data.txt","w+")
-        f.write(f"Bytes = {total_bytes}, Total Time = {end_total_time-start_total_time}")
+        f= open("data.txt","a")
+        total_time_taken = end_total_time-start_total_time
+        f.write(f"Bytes = {total_bytes}, Total Time = {total_time_taken}, Goodput = {total_bytes/total_time_taken}\n")
         f.close()
    
     #receiver
