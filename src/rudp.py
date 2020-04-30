@@ -152,19 +152,12 @@ class Rudp():
                 # Need to kill the thread if the pkt sent by sender is lost. Since recvfrom is non-blocking it will wait till it gets data
                 # and join just waits for it to complete.
                 if kill_ack_thread == True:
-                    print("KILL ACK THREAD?")
+                    print("KILL ACK THREAD")
                     self.isTimeOut = True
                 ackthread.join()
 
             if isSocketError==True:
                 break
-
-        end_total_time = time.time()
-        total_bytes = len(data)
-        f= open("data.txt","a")
-        total_time_taken = end_total_time-start_total_time
-        f.write(f"Bytes = {total_bytes}, Total Time = {total_time_taken}, Goodput = {total_bytes/total_time_taken}\n")
-        f.close()
    
     #receiver
     def read(self):
