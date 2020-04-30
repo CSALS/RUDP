@@ -169,7 +169,7 @@ class Rudp():
 
         end_total_time = time.time()
         total_bytes = len(data)
-        f= open("data/data.txt","w+")
+        f= open("data.txt","w+")
         f.write(f"Bytes = {total_bytes}, Total Time = {end_total_time-start_total_time}")
         f.close()
    
