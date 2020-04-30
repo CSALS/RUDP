@@ -18,6 +18,9 @@ def server():
             print(f"RECEIVE\nListening at {s.ourSocket.getsockname()} For Receiving Messages\n")
             print("------------------------------------------\n")
             data, client_addr = s.read()
+            #print("inserver")
+            #print(data)
+            #message = data.decode('ascii')#Unnecessary decode
             print(f"\nFrom client {client_addr} : {data}\n")
             del s
             time.sleep(2.5)
@@ -31,10 +34,10 @@ def client():
         while True:
             s = Rudp()
             dest_ip = MY_IP
-            dest_port, message = input().split(',', 2)
+            dest_port, message = input("Send: ").split(',', 2)
             dest_port = int(dest_port)
             s.connect(dest_ip, dest_port)
-            data = message.encode('ascii')
+            data = message.encode('ascii')#Unnecessary encode
             s.write(data)
             del s
             time.sleep(2.5)
@@ -49,7 +52,7 @@ if __name__ == "__main__":
     [destination_port,message to be sent]\n \
         With Comma Between Them And No Space Between Them.\n \
     Example :-\n \
-        4000,Hello Bro How Are You Doing \n\n \
+	4000,Hello Bro How Are You Doing \n\n \
     Press Ctrl + C / Cmd + C to Exit the application \n\n")
 
     

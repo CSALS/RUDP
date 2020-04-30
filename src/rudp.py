@@ -10,10 +10,11 @@ MAX_SIZE_BYTES = 65535 # Mazimum size of a UDP datagram
 delimiter = "|"
 
 '''
-Application Layer Protocol which adds reliability function for UDP socket class in python.
+Application Layer Protocol which adds reliability function for UDP in socket class python.
 '''
 # Packet class definition
 class packet():
+    
     def __init__(self,message=None):
         self.msg = message
         self.length = str(len(message))
@@ -21,24 +22,23 @@ class packet():
         self.last=0
         self.seqNo=0
     
-# Helper Method to divide the message into chunks of bytes of len = "length"
 def chunkstring(string, length):
     return (string[0+i:length+i] for i in range(0, len(string), length))
 
 
 class Rudp():
-    acknowledgment=None
+    acknowledgment=None#CLASS VARIABLE WORKS ONLY IF SINGLE CLIENT SERVER
     isAckRcv=False
     isTimeOut=False
-
     # Socket Creation and Initialisation
+
     def __init__(self,sock=None):
         if sock is None:
             self.ourSocket = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         else:
             self.ourSocket = sock
     def bind(self,ipaddr):
-        self.myip=ipaddr #SERVER IP 
+        self.myip=ipaddr#SERVER IP 
         self.ourSocket.bind((ipaddr,0)) #Server is bound to udp socket with a random free port assigned
 
     def connect(self,host,port):
@@ -46,30 +46,40 @@ class Rudp():
         self.toport=port
         self.ourSocket.connect((host,port))
 
-    # Function to read the Acknowledgment packet incoming on the socket (if any)
+    # Receive Acknowledgment   
+                  
     def ack_gen(self,sock):
         sock.setblocking(0)
+        # print(f"\n\t{self.acknowledgment} {self.isAckRcv} {self.isTimeOut}")
         while self.acknowledgment == None and self.isAckRcv == False and self.isTimeOut == False:
             try:
                 self.acknowledgment,self.toaddress = sock.recvfrom(MAX_SIZE_BYTES)
                 self.acknowledgment = self.acknowledgment.decode('ascii')
-                self.acknowledgment=self.acknowledgment.split("|")[2] # Gives the number of Acknowledgment packet  
+                # Gives the number of Acknowledgment packet
+                self.acknowledgment=self.acknowledgment.split("|")[2]      
                 print("ACK received == "+self.acknowledgment)
                 time.sleep(1)
             except:
                 continue
 
-    # Function used to send the data with reliability
+        # print("\n\tloop is breaking\n")
+
+    # Sender Function           
     def write(self,data):
         gseqNo=0
         time_limit=2
         sock = self.ourSocket
-        # Fragment and send file in chunks of 25 byte 
+        # Fragment and send file in chunks of 10 byte 
         generator = chunkstring(data,25)
         list_of_packet_strings=list(generator)
         isSocketError = False
-        # start_total_time = time.time()
+        start_total_time = time.time()
         for i in range(0,len(list_of_packet_strings)):
+            ''' If we are sending last packet there are 2 cases =
+                1. Rec didn't rcv the last packet. So we need to re-trasnmit in this case.
+                2. Rec rcv the last packet but the ack sent by the rcv is lost. But rec doesn't know if the last ack is lost.
+            '''   
+            
             # Each msg is a bstring i.e b'hello' or b'there'
             msg=list_of_packet_strings[i]       
             msg=msg.decode('ascii')
@@ -80,7 +90,7 @@ class Rudp():
           
             print("pkt Seq: " + str(pkt.seqNo))
             if(i==len(list_of_packet_strings)-1 ):
-                print("this is the last packet")
+                # print("this is the last packet")
                 isLast=True
                 pkt.last=1
 
@@ -107,12 +117,14 @@ class Rudp():
                 self.isAckRcv=False
                 self.isTimeOut=False
                 self.acknowledgement=None
-                # Creating a thread to receive acknowledgement 
+                #Creating a thread to calculate acknowledgement 
                 ackthread = threading.Thread(target = self.ack_gen, args = (sock,))
                 ackthread.start()
                 
                 while(not TIMED_OUT):
                     TIMED_OUT= not ( abs(time.time() - start_time) < time_limit)
+
+                    #TODO CHECK CHECKSUM FOR ACK
                                      
                     # Ack is not yet received                                                                                                       
                     if(self.acknowledgment == None):
@@ -122,9 +134,8 @@ class Rudp():
                     elif(self.acknowledgment == str(pkt.seqNo)):
                         kill_ack_thread=False
                         TIMED_OUT = False
-                        # Toggling the sequence number if the packet has reached properly
+                        #toggling the sequence number if the packet has reached properly
                         gseqNo = int(not (pkt.seqNo))
-                        print("Ack == Expected Seq")
                         print("gseqNo:"+str(gseqNo))
                         self.acknowledgment=None
                         self.isAckRcv=True
@@ -138,22 +149,22 @@ class Rudp():
                         print("Ack != Seq")
                         continue
 
-                # Need to kill the thread running ack_gen since we haven't recieved any ack from the server.
-                # We just retransmit. By making isTimeOut=True, the while loop stops in ack_gen() thereby stopping the thread
+                # Need to kill the thread if the pkt sent by sender is lost. Since recvfrom is non-blocking it will wait till it gets data
+                # and join just waits for it to complete.
                 if kill_ack_thread == True:
-                    print("KILL ACK THREAD")
+                    print("KILL ACK THREAD?")
                     self.isTimeOut = True
                 ackthread.join()
 
             if isSocketError==True:
                 break
 
-        # end_total_time = time.time()
-        # total_bytes = len(data)
-        # f= open("data.txt","a")
-        # total_time_taken = end_total_time-start_total_time
-        # f.write(f"Bytes = {total_bytes}, Total Time = {total_time_taken}, Goodput = {total_bytes/total_time_taken}\n")
-        # f.close()
+        end_total_time = time.time()
+        total_bytes = len(data)
+        f= open("data.txt","a")
+        total_time_taken = end_total_time-start_total_time
+        f.write(f"Bytes = {total_bytes}, Total Time = {total_time_taken}, Goodput = {total_bytes/total_time_taken}\n")
+        f.close()
    
     #receiver
     def read(self):
@@ -165,22 +176,23 @@ class Rudp():
                 data, self.clientAddress = self.ourSocket.recvfrom(MAX_SIZE_BYTES)#UDP recvfrom #######PAUSE HERE
                 data = data.decode('ascii')
                 last=int(data.split("|")[3])
+                
                 print("receiver: msg received "+data+str(self.clientAddress))
             except:
-                print("error socket recvfrom in line 164")
+                print("error 169")
                 continue
                 
             if self.checksum(data,1) != "1111111111111111": # corrupted packet received relay previous acknowledgement
                 if last == 1:
                     last = 0
-                print("receiver:bp1")
+                #final=str(not expected_seq_num)+ "|ACK"
                 print("\t\treceived corrupt packet")
-                # print("checksum " + str(self.checksum(data,1)))
+                print("checksum " + str(self.checksum(data,1)))
                 return_msg=str(int(not expected_seq_num))+"|ACK"
                 retpkt=packet(return_msg)
                 finalPacket = str(retpkt.checksum) + delimiter + str(retpkt.length)+delimiter+ retpkt.msg #pkt.msg is "0|ACK" or "1|ACK"       
                 finalPacket=finalPacket.encode('ascii')
-                
+                print("receiver:bp1")
                 self.ourSocket.sendto(finalPacket, self.clientAddress)
                              
         
@@ -191,8 +203,8 @@ class Rudp():
                 retpkt=packet(return_msg)
                 finalPacket = str(retpkt.checksum) + delimiter + str(retpkt.length)+delimiter+ retpkt.msg #pkt.msg is "0|ACK" or "1|ACK"       
                 finalPacket=finalPacket.encode('ascii')
-                print("receiver:bp2")
                 print("ExceptedSeqnum :" + str(expected_seq_num)+"Seq number:" + str(int(data.split("|")[1])))
+                print("receiver:bp2")
                 self.ourSocket.sendto(finalPacket, self.clientAddress)                   
 
             elif expected_seq_num == int(data.split("|")[1]):
@@ -201,8 +213,9 @@ class Rudp():
                 retpkt=packet(return_msg)
                 finalPacket = str(retpkt.checksum) + delimiter + str(retpkt.length)+delimiter+ retpkt.msg #pkt.msg is "0|ACK" or "1|ACK"       
                 finalPacket=finalPacket.encode('ascii')
-                print("receiver:bp3")
                 print("ExceptedSeqnum :" + str(expected_seq_num)+"Seq number:" + str(int(data.split("|")[1])))
+                print("receiver:bp3")
+                #DOUBT: what if this ack is lost? we are exiting from the loop right?
                 if last==1:
                     print("sending last ack")
                     iters=10
@@ -219,20 +232,41 @@ class Rudp():
         return retmsg , self.clientAddress
                       
         
-    # Checksum calculation is not needed since udp pkts are dropped if corrupted
+    #TODO:write a fn for checksum generation
+    # checksum functions needed for calculation checksum
     def checksum(self, msg,flag):
         return "1111111111111111"
+        s = 0
+
+        # loop taking 2 characters at a time
+        for i in range(0, len(msg), 2):
+            if(i==len(msg)-1):
+                w=ord(msg[i]) + ( 0 << 8)
+            else :
+                w = ord(msg[i]) + (ord(msg[i+1]) << 8 )
+            s = s + w
+
+        s = (s>>16) + (s & 0xffff)
+        s = s + (s >> 16)
+
+        if(flag==1):
+            return s 
+
+        #complement and mask to 4 byte short
+        s = ~s & 0xffff
+        print(s)
+        return s
 
   
                  
 if __name__ == "__main__":
-    print("Dont execute this. Execute driver.py")
-    # #gen=chunkstring("Thisisabigmessage",3)
-    # #print(type(list(gen)[0]))        
-    # string=b'abcde'   
-    # print(string)
-    # print(type(string.decode("utf-8")))
-    # checksum()
+    #gen=chunkstring("Thisisabigmessage",3)
+    #print(type(list(gen)[0]))        
+    string=b'abcde'   
+    print(string)
+    print(type(string.decode("utf-8")))
+
+    checksum()
         
     
 
