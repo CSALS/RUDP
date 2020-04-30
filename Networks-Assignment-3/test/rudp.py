@@ -66,10 +66,9 @@ class Rudp():
                 # Gives the number of Acknowledgment packet
                 self.acknowledgment=self.acknowledgment.split("|")[2]      
                 print("ACK received == "+self.acknowledgment)
-                # sock.setblocking(1)
+                time.sleep(1)
             except:
                 continue
-                # print("error ack gen")
 
         # print("\n\tloop is breaking\n")
 
@@ -215,11 +214,13 @@ class Rudp():
                     while iters > 0:
                         self.ourSocket.sendto(finalPacket, self.clientAddress)
                         iters = iters-1
+                        time.sleep(0.1)
+                    time.sleep(2)
                 else:
                     self.ourSocket.sendto(finalPacket, self.clientAddress)
                 expected_seq_num = int(not expected_seq_num) #Toggle expected sequence numbers
            
-
+        
         return retmsg , self.clientAddress
                       
         
